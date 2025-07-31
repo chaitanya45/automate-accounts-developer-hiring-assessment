@@ -16,10 +16,7 @@ class BatchController:
         if self.batch_service is None:
             # Use the project root directory for discovering PDFs
             base_directory = os.path.dirname(os.path.dirname(__file__))
-            self.batch_service = BatchProcessingService(
-                base_directory,
-                current_app.config.get('TESSERACT_CMD')
-            )
+            self.batch_service = BatchProcessingService(base_directory)
         return self.batch_service
     
     def discover_files(self):

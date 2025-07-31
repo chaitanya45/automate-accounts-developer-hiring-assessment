@@ -11,9 +11,9 @@ logger = logging.getLogger(__name__)
 class BatchProcessingService:
     """Service to process existing PDF files in directory structure"""
     
-    def __init__(self, base_directory: str, tesseract_cmd: str = None):
+    def __init__(self, base_directory: str):
         self.base_directory = base_directory
-        self.file_service = FileProcessingService("uploads/receipts", tesseract_cmd)
+        self.file_service = FileProcessingService("uploads/receipts")
     
     def discover_pdf_files(self) -> List[Dict[str, str]]:
         """

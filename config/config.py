@@ -12,7 +12,7 @@ class Config:
     ALLOWED_EXTENSIONS = {'pdf'}
     
     # OCR settings
-    TESSERACT_CMD = os.environ.get('TESSERACT_CMD') or r'C:\Program Files\Tesseract-OCR\tesseract.exe'
+    TESSERACT_CMD = os.environ.get('TESSERACT_CMD') or r'C:\\Program Files\\Tesseract-OCR\\tesseract.exe'
     
     # LLM API Keys (set these as environment variables for security)
     OPENAI_API_KEY = os.environ.get('OPENAI_API_KEY')
