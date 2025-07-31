@@ -45,6 +45,7 @@ def create_app():
                 'receipt_by_id': '/api/receipts/{id}',
                 'batch_discover': '/api/batch/discover',
                 'batch_process': '/api/batch/process',
+                'batch_upload': '/api/batch/upload',
                 'batch_stats': '/api/batch/stats'
             }
         }

@@ -7,11 +7,35 @@ A Flask-based web application for processing scanned receipts using **AI/LLM tec
 - **PDF Upload**: Upload scanned receipt files in PDF format
 - **PDF Validation**: Validate uploaded files to ensure they are valid PDFs
 - **AI Processing**: Extract text and key details using advanced LLM services (OpenAI, Gemini, Claude)
-- **Data Extraction**: Parse merchant name, total amount, tax, date, and payment method
+- **Data Extraction**: Parse merchant name, total amount, tax amount, subtotal, payment method, purchase date, and raw text
 - **REST API**: Full CRUD operations for receipts and files
 - **Database Storage**: SQLite database with structured schema
 - **Error Handling**: Comprehensive error handling and validation
-- **Batch Processing**: Process multiple PDFs from directory structure
+- **Batch Processing**: Two types of batch processing available:
+  - **Directory-based**: Process existing PDFs from year/category folder structure
+  - **Upload-based**: Upload and process multiple PDFs simultaneously
+- **Smart Duplicate Detection**: Automatically skips already processed files
+- **Multi-provider LLM Support**: Fallback between OpenAI, Gemini, and Claude for reliability
+
+## 🔄 Batch Processing Concepts
+
+### **Directory-based Batch Processing**
+- Automatically discovers PDFs in your project's year directories (2018/, 2019/, 2021/, etc.)
+- Processes files in place without moving them
+- Extracts year and category information from folder structure
+- Perfect for processing historical receipts already organized by date
+
+### **Upload-based Batch Processing** 
+- Upload multiple PDF files simultaneously via single API call
+- Files are stored in `uploads/receipts/` directory
+- Immediate processing with real-time results
+- Ideal for processing new batches of receipts
+
+### **Smart Features**
+- **File Existence Checking**: Skips files already processed (based on filename)
+- **Comprehensive Error Handling**: Continues processing even if some files fail
+- **Detailed Results**: Returns status for each file (processed/failed/skipped)
+- **Database Integration**: All results automatically saved to SQLite database
 
 ## 📁 Project Structure
 
@@ -66,9 +90,8 @@ C:\Pdf extraction zoho project\automate-accounts-developer-hiring-assessment\
 
 - **Backend**: Python 3.8+ with Flask
 - **Database**: SQLite with raw SQL queries
-- **OCR**: Tesseract OCR with pytesseract
-- **PDF Processing**: PyPDF2 and pdf2image
-- **Image Processing**: OpenCV and Pillow
+- **AI/LLM Processing**: OpenAI GPT, Google Gemini, Anthropic Claude
+- **PDF Processing**: PyPDF2 for text extraction
 - **File Upload**: Werkzeug
 - **Testing**: pytest
 - **Environment**: python-dotenv
@@ -76,9 +99,11 @@ C:\Pdf extraction zoho project\automate-accounts-developer-hiring-assessment\
 ## 📋 **Prerequisites**
 
 1. **Python 3.8+**
-2. **Tesseract OCR** - Download and install from: https://github.com/UB-Mannheim/tesseract/wiki
-   - Default installation path: `C:\Program Files\Tesseract-OCR\tesseract.exe`
-3. **Poppler** (for pdf2image) - Download from: https://poppler.freedesktop.org/
+2. **LLM API Keys** - Get API keys from:
+   - **Google Gemini**: https://ai.google.dev/
+   - **OpenAI** (optional): https://platform.openai.com/
+   - **Anthropic Claude** (optional): https://www.anthropic.com/
+3. **Environment Configuration** - Set up `.env` file with your API keys
 
 ## 🚀 **Quick Start**
 
@@ -202,10 +227,14 @@ Content-Type: application/json
     "merchant_name": "Target",
     "total_amount": 25.99,
     "tax_amount": 2.34,
+    "subtotal": 23.65,
+    "payment_method": "Credit Card",
     "purchased_at": "2024-01-01T12:00:00",
-    "payment_method": "Credit",
     "file_id": "uuid",
-    "created_at": "2024-01-01T00:00:00"
+    "file_path": "uploads/receipts/receipt.pdf",
+    "raw_text": "TARGET Store #1234...",
+    "created_at": "2024-01-01T00:00:00",
+    "updated_at": "2024-01-01T00:00:00"
   }
 }
 ```
@@ -235,10 +264,18 @@ GET /api/receipts/{receipt_id}
     "id": "uuid",
     "merchant_name": "Target",
     "total_amount": 25.99,
+    "tax_amount": 2.34,
+    "subtotal": 23.65,
+    "payment_method": "Credit Card",
+    "purchased_at": "2024-01-01T12:00:00",
+    "file_id": "uuid",
+    "raw_text": "TARGET Store #1234...",
     "file_info": {
       "file_name": "receipt.pdf",
       "file_path": "uploads/receipts/receipt.pdf"
-    }
+    },
+    "created_at": "2024-01-01T00:00:00",
+    "updated_at": "2024-01-01T00:00:00"
   }
 }
 ```
@@ -250,7 +287,10 @@ Content-Type: application/json
 
 {
   "merchant_name": "Updated Store Name",
-  "total_amount": 30.00
+  "total_amount": 30.00,
+  "tax_amount": 2.70,
+  "subtotal": 27.30,
+  "payment_method": "Debit Card"
 }
 ```
 
@@ -309,6 +349,9 @@ POST /api/batch/process
       "receipt_id": "uuid",
       "merchant_name": "Best Buy",
       "total_amount": 299.99,
+      "tax_amount": 27.00,
+      "subtotal": 272.99,
+      "payment_method": "Credit Card",
       "year": "2021",
       "category": "retail"
     }
@@ -316,7 +359,48 @@ POST /api/batch/process
 }
 ```
 
-#### 11. Get Processing Statistics
+#### 11. Batch Upload Multiple Files
+```http
+POST /api/batch/upload
+Content-Type: multipart/form-data
+
+Form Data:
+- files: (Multiple PDF files)
+```
+
+**Response:**
+```json
+{
+  "message": "Batch upload completed",
+  "summary": {
+    "total_files": 5,
+    "processed": 4,
+    "failed": 0,
+    "skipped": 1
+  },
+  "details": [
+    {
+      "filename": "receipt1.pdf",
+      "status": "processed",
+      "file_id": "uuid1",
+      "receipt_id": "uuid1",
+      "merchant_name": "Best Buy",
+      "total_amount": 299.99,
+      "tax_amount": 27.00,
+      "subtotal": 272.99,
+      "payment_method": "Credit Card"
+    },
+    {
+      "filename": "receipt2.pdf",
+      "status": "skipped",
+      "reason": "Already processed",
+      "file_id": "uuid2"
+    }
+  ]
+}
+```
+
+#### 12. Get Processing Statistics
 ```http
 GET /api/batch/stats
 ```
@@ -358,6 +442,10 @@ The application uses SQLite with the existing schema:
 - `purchased_at` (TIMESTAMP) - Purchase date/time
 - `merchant_name` (TEXT) - Store/merchant name
 - `total_amount` (DECIMAL) - Total amount
+- `tax_amount` (DECIMAL) - Tax amount
+- `subtotal` (DECIMAL) - Subtotal before tax
+- `payment_method` (TEXT) - Payment method (Cash, Credit, Debit, etc.)
+- `raw_text` (TEXT) - Raw extracted text from PDF
 - `file_path` (TEXT) - PDF file path
 - `created_at` (TIMESTAMP) - Creation time
 - `updated_at` (TIMESTAMP) - Last update time
@@ -383,7 +471,7 @@ curl -X POST -H "Content-Type: application/json" \
      -d '{"file_id":"your-file-id"}' \
      http://localhost:5000/api/validate
 
-# 3. Process with OCR
+# 3. Process with LLM extraction
 curl -X POST -H "Content-Type: application/json" \
      -d '{"file_id":"your-file-id"}' \
      http://localhost:5000/api/process
@@ -414,10 +502,63 @@ response = requests.post('http://localhost:5000/api/process',
                         json={'file_id': file_id})
 receipt_data = response.json()
 
-print(f"Extracted: {receipt_data['receipt']['merchant_name']} - ${receipt_data['receipt']['total_amount']}")
+receipt = receipt_data['receipt']
+print(f"Merchant: {receipt['merchant_name']}")
+print(f"Total: ${receipt['total_amount']}")
+print(f"Tax: ${receipt['tax_amount']}")
+print(f"Subtotal: ${receipt['subtotal']}")
+print(f"Payment: {receipt['payment_method']}")
+print(f"Date: {receipt['purchased_at']}")
 ```
 
-### 3. Batch Processing Existing PDFs
+### 3. Batch Upload Multiple Files
+
+```bash
+# Upload multiple files at once
+curl -X POST http://localhost:5000/api/batch/upload \
+  -F "files=@receipt1.pdf" \
+  -F "files=@receipt2.pdf" \
+  -F "files=@receipt3.pdf"
+```
+
+### 4. Batch Processing Existing PDFs
+
+```bash
+# Discover all PDFs in directory structure
+curl http://localhost:5000/api/batch/discover
+
+# Process all discovered PDFs
+curl -X POST http://localhost:5000/api/batch/process
+
+# Get processing statistics
+curl http://localhost:5000/api/batch/stats
+```
+
+### 5. Python Batch Upload Example
+
+```python
+import requests
+
+# Upload multiple files
+files = [
+    ('files', ('receipt1.pdf', open('receipt1.pdf', 'rb'), 'application/pdf')),
+    ('files', ('receipt2.pdf', open('receipt2.pdf', 'rb'), 'application/pdf')),
+    ('files', ('receipt3.pdf', open('receipt3.pdf', 'rb'), 'application/pdf'))
+]
+
+response = requests.post('http://localhost:5000/api/batch/upload', files=files)
+results = response.json()
+
+print(f"Processed: {results['summary']['processed']}")
+print(f"Failed: {results['summary']['failed']}")
+print(f"Skipped: {results['summary']['skipped']}")
+
+# Close files
+for _, (_, file_obj, _) in files:
+    file_obj.close()
+```
+
+### 6. Complete Workflow Example
 
 ```bash
 # Start the server first

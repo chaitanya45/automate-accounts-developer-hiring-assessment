@@ -2,10 +2,15 @@ import logging
 import sys
 from datetime import datetime
 
-def setup_logger(name: str = __name__, level: int = logging.INFO) -> logging.Logger:
+def setup_logger(name: str = None, level: int = logging.INFO) -> logging.Logger:
     """Setup logger with console and file handlers"""
     
-    logger = logging.getLogger(name)
+    # If no name provided, configure the root logger
+    if name is None:
+        logger = logging.getLogger()
+    else:
+        logger = logging.getLogger(name)
+    
     logger.setLevel(level)
     
     # Remove all handlers before adding new ones to avoid duplicate logs
@@ -30,5 +35,12 @@ def setup_logger(name: str = __name__, level: int = logging.INFO) -> logging.Log
     # Add handlers
     logger.addHandler(console_handler)
     logger.addHandler(file_handler)
+    
+    # Also set up Flask's logger
+    flask_logger = logging.getLogger('werkzeug')
+    flask_logger.setLevel(level)
+    if not flask_logger.hasHandlers():
+        flask_logger.addHandler(console_handler)
+        flask_logger.addHandler(file_handler)
 
     return logger
