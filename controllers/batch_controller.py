@@ -72,3 +72,33 @@ class BatchController:
         except Exception as e:
             logger.error(f"Stats retrieval error: {str(e)}")
             return jsonify({'error': 'Failed to get statistics'}), 500
+    
+    def batch_upload(self):
+        """Upload and process multiple PDF files"""
+        from flask import request
+        
+        try:
+            if 'files' not in request.files:
+                return jsonify({'error': 'No files provided'}), 400
+            
+            files = request.files.getlist('files')
+            if not files or all(f.filename == '' for f in files):
+                return jsonify({'error': 'No files selected'}), 400
+            
+            batch_service = self._get_batch_service()
+            results = batch_service.process_uploaded_files(files)
+            
+            return jsonify({
+                'message': 'Batch upload completed',
+                'summary': {
+                    'total_files': results['total_files'],
+                    'processed': results['processed'],
+                    'failed': results['failed'],
+                    'skipped': results['skipped']
+                },
+                'details': results['details']
+            }), 200
+            
+        except Exception as e:
+            logger.error(f"Batch upload error: {str(e)}")
+            return jsonify({'error': 'Batch upload failed'}), 500

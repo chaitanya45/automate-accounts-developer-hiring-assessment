@@ -11,10 +11,15 @@ def discover_files():
 
 @batch_bp.route('/batch/process', methods=['POST'])
 def process_all_files():
-    """Process all discovered PDF files with OCR"""
+    """Process all discovered PDF files with LLM extraction"""
     return batch_controller.process_all_files()
 
 @batch_bp.route('/batch/stats', methods=['GET'])
 def get_stats():
     """Get processing statistics"""
     return batch_controller.get_stats()
+
+@batch_bp.route('/batch/upload', methods=['POST'])
+def batch_upload():
+    """Upload multiple PDF files for processing"""
+    return batch_controller.batch_upload()

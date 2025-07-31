@@ -129,7 +129,7 @@ class BatchProcessingService:
                     'file_id': file_id
                 }
             
-            # Process with OCR
+            # Process with LLM extraction
             success, receipt_data, error = self.file_service.process_file(file_id)
             
             if success:
@@ -181,3 +181,101 @@ class BatchProcessingService:
             stats['receipts_by_merchant'][merchant] = stats['receipts_by_merchant'].get(merchant, 0) + 1
         
         return stats
+    
+    def process_uploaded_files(self, files) -> Dict[str, Any]:
+        """
+        Process multiple uploaded PDF files
+        Returns summary of processing results
+        """
+        from werkzeug.utils import secure_filename
+        import os
+        
+        results = {
+            'total_files': len(files),
+            'processed': 0,
+            'failed': 0,
+            'skipped': 0,
+            'details': []
+        }
+        
+        logger.info(f"Processing {len(files)} uploaded files")
+        
+        for file in files:
+            try:
+                # Skip empty files
+                if file.filename == '':
+                    continue
+                
+                filename = secure_filename(file.filename)
+                
+                # Check if file already exists in database
+                existing_file = ReceiptFileRepository.get_by_file_name(filename)
+                
+                if existing_file and existing_file['is_processed']:
+                    results['skipped'] += 1
+                    results['details'].append({
+                        'filename': filename,
+                        'status': 'skipped',
+                        'reason': 'Already processed',
+                        'file_id': existing_file['id']
+                    })
+                    continue
+                
+                # Save uploaded file
+                upload_result = self.file_service.save_uploaded_file(file)
+                if not upload_result['success']:
+                    results['failed'] += 1
+                    results['details'].append({
+                        'filename': filename,
+                        'status': 'failed',
+                        'error': upload_result['error']
+                    })
+                    continue
+                
+                file_id = upload_result['file_id']
+                
+                # Validate PDF
+                is_valid, validation_message = self.file_service.validate_file(file_id)
+                
+                if not is_valid:
+                    results['failed'] += 1
+                    results['details'].append({
+                        'filename': filename,
+                        'status': 'failed',
+                        'error': f'Invalid PDF: {validation_message}',
+                        'file_id': file_id
+                    })
+                    continue
+                
+                # Process with LLM extraction
+                success, receipt_data, error = self.file_service.process_file(file_id)
+                
+                if success:
+                    results['processed'] += 1
+                    results['details'].append({
+                        'filename': filename,
+                        'status': 'processed',
+                        'file_id': file_id,
+                        'receipt_id': receipt_data['id'] if receipt_data else None,
+                        'merchant_name': receipt_data.get('merchant_name') if receipt_data else None,
+                        'total_amount': receipt_data.get('total_amount') if receipt_data else None
+                    })
+                else:
+                    results['failed'] += 1
+                    results['details'].append({
+                        'filename': filename,
+                        'status': 'failed',
+                        'error': error,
+                        'file_id': file_id
+                    })
+                    
+            except Exception as e:
+                logger.error(f"Error processing uploaded file {file.filename}: {str(e)}")
+                results['failed'] += 1
+                results['details'].append({
+                    'filename': file.filename,
+                    'status': 'failed',
+                    'error': str(e)
+                })
+        
+        return results
